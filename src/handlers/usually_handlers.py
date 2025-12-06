@@ -1,4 +1,5 @@
 from aiogram import types
+from src.sql import update_player_top_position
 
 async def start(message: types.Message):
     await message.answer(f"Привет Это мини-игра с вопросами введи /help для доп информации")
@@ -16,5 +17,5 @@ async def help(message: types.Message):
     6. Команда /close - для подведения итогов дня и выдачи промокодов.
     7. Ответы пользователя на вопросы квиза.""")
 
-async def questions():
-    pass
+async def player_top(message: types.Message):
+    update_player_top_position()

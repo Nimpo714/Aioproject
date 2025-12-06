@@ -1,16 +1,15 @@
-# This is a sample Python script.
+import logging
+from aiogram import Bot, Dispatcher, executor
+from src.credits import token
+from src.register_handlers import register_handlers
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+BOT_TOKEN = token
+logging.basicConfig(level=logging.INFO)
 
+bot = Bot(token=BOT_TOKEN)  # -- бот
+dp = Dispatcher(bot)        # -- диспетчер
+register_handlers(dp)       # -- центр вселенной
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    executor.start_polling(dp, skip_updates=True)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
