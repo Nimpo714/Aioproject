@@ -1,3 +1,2 @@
-def update_top_table():
-    pass
-def top_table():
+def spliter(text: str, split_symb=' '):
+    return text.split(split_symb)

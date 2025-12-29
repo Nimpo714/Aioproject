@@ -5,22 +5,28 @@ con = sqlite3.connect('data.db')
 cursor = con.cursor()
 
 create_tables_scripts = ['''
-CREATE TABLE IF NOT EXISTS top(
-    user_id INTEGER,
+CREATE TABLE IF NOT EXISTS users_top(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER,
     player_rate INTEGER,
     player_top INTEGER
 );''',
                          '''
 CREATE TABLE IF NOT EXISTS admins(
-    user_id INTEGER,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER,
     login_date TEXT
 );''',
                          '''
 CREATE TABLE IF NOT EXISTS questions(
-    questions TEXT,
-    right_question TEXT
-);'''
-                         ]
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quest TEXT,
+    ans1 TEXT,
+    ans2 TEXT,
+    ans3 TEXT,
+    ans4 TEXT,
+    cor_ans TEXT
+);''']
 
 for table in create_tables_scripts:  # -- Запускаем скрипты
     cursor.execute(table)
@@ -30,34 +36,35 @@ for table in create_tables_scripts:  # -- Запускаем скрипты
 def add_user(id: int):
     """ Добавляет игрока в турнирную таблицу """
     # -- user_id, player_rate, player_top
-    cursor.execute(f'INSERT INTO top VALUES ({id}, 0, 0);')
+    cursor.execute('INSERT INTO users_top (chat_id, player_rate, player_top) VALUES (?, 0, 0);', [id])
     con.commit()
+    update_player_top_position()
 
 
 def update_player_rate(user_id: int, new_rate: int):
     """ Обновляет рейтинг игрока """
-    cursor.execute(f'UPDATE top SET player_rate = {new_rate} WHERE user_id = {user_id};')
+    cursor.execute('UPDATE users_top SET player_rate = ? WHERE user_id = ?;', [new_rate, user_id])
     con.commit()
     update_player_top_position()
 
 
 def update_player_top_position():
     """ 
-    Обновляет столбец top для всех пользователей, 
+    Обновляет столбец users_top для всех пользователей,
     присваивая им актуальное место в рейтинге.
     """
     sql_update_top_script = '''
-    UPDATE top 
-    SET top = Ranked.rank
+    UPDATE users_top 
+    SET player_top = Ranked.rank
     FROM (
         SELECT 
-            user_id, 
+            chat_id, 
             RANK() OVER (ORDER BY player_rate DESC) as rank
         FROM 
-            top
+            users_top
     ) AS Ranked
     WHERE 
-        top.user_id = Ranked.user_id;
+        users_top.chat_id = Ranked.chat_id;
     '''
     cursor.execute(sql_update_top_script)
     """
@@ -67,15 +74,23 @@ def update_player_top_position():
     con.commit()
 
 
+def user_in_table(id: int, table: str):
+    """ Пользователь в топе или нет? """
+    cursor.execute(f'SELECT chat_id FROM {table} WHERE chat_id = ?', [id])
+    print(cursor.fetchall())
+    if cursor.fetchone() is None:
+        return False
+
+
 def top(first_top: int = 10):
-    cursor.execute(f""" SELECT * FROM top WHERE player_top < {first_top} """)
+    cursor.execute(""" SELECT * FROM top WHERE player_top < ? """, [first_top])
     return cursor.fetchall()
 
 
 def add_admin(id: int):
     """ Добавляет админов """
     try:
-        cursor.execute('INSERT INTO admins VALUES (?, ?)', (id, str(time())))
+        cursor.execute('INSERT INTO admins (chat_id, login_date) VALUES (?, ?)', (id, str(time())))
         con.commit()
         return f'Админ {id} был добавлен'
 
@@ -87,3 +102,16 @@ def search_admin(id: int):
     """ Поиск админа по базе """
     cursor.execute('SELECT * FROM admins WHERE user_id = ?', (id,))
     return cursor.fetchone()
+
+
+def quest(quest_id: int):
+    """ Возращаем ответ на вопрос <quest_id> """
+    cursor.execute('SELECT quest FROM questions WHERE id = ?', [quest_id])
+    return cursor.fetchone()
+
+
+def set_quest(quest_text: int, quest_ans: None, cor_ans: str):
+    """ Устанавливаем вопросы и ответы """
+    if quest_ans is None:
+        quest_ans = []
+    cursor.execute('INSERT INTO questions (quest, ans1, ans2, ans3, ans4, cor_ans) VALUES (?, ?, ?, ?, ?, ?)', [quest_text, quest_ans[0], quest_ans[1], quest_ans[2], quest_ans[3], cor_ans])
