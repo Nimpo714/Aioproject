@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=BOT_TOKEN)  # -- бот
 dp = Dispatcher(bot)        # -- диспетчер
-register_handlers(dp)       # -- центр вселенной
+register_handlers(dp)       # -- регистр хэндлеров
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
