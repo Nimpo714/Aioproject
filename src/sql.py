@@ -77,8 +77,7 @@ def update_player_top_position():
 def user_in_table(id: int, table: str):
     """ Пользователь в топе или нет? """
     cursor.execute(f'SELECT chat_id FROM {table} WHERE chat_id = ?', [id])
-    print(cursor.fetchall())
-    if cursor.fetchone() is None:
+    if cursor.fetchone() is []:
         return False
 
 
@@ -110,8 +109,14 @@ def quest(quest_id: int):
     return cursor.fetchone()
 
 
-def set_quest(quest_text: int, quest_ans: None, cor_ans: str):
-    """ Устанавливаем вопросы и ответы """
-    if quest_ans is None:
-        quest_ans = []
-    cursor.execute('INSERT INTO questions (quest, ans1, ans2, ans3, ans4, cor_ans) VALUES (?, ?, ?, ?, ?, ?)', [quest_text, quest_ans[0], quest_ans[1], quest_ans[2], quest_ans[3], cor_ans])
+def set_quest(quest_text: str, quest_ans: list, cor_ans: str):
+    cursor.execute('''
+        INSERT INTO questions (quest, ans1, ans2, ans3, ans4, cor_ans) 
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', [quest_text, quest_ans[0], quest_ans[1], quest_ans[2], quest_ans[3], cor_ans])
+    con.commit()
+
+
+def clear_questions_table():
+    cursor.executescript("DELETE FROM questions; UPDATE sqlite_sequence SET seq = 0 WHERE name = 'questions'")
+    con.commit()

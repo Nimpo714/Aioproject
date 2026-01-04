@@ -2,13 +2,10 @@
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
 
-class Questions(StatesGroup):
-    quest1 = State()  # -- Вопрос 1 -- #
-    quest2 = State()  # -- Вопрос 2 -- #
-    quest3 = State()  # -- Вопрос 3 -- #
-    quest4 = State()  # -- Вопрос 4 -- #
-    quest5 = State()  # -- Вопрос 5 -- #
-
+class QuizCreator(StatesGroup):
+    waiting_for_question = State()
+    waiting_for_options = State()
+    waiting_for_correct = State()
 
 class Game(StatesGroup):
     wait_for_q1 = State()
