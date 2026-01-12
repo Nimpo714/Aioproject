@@ -20,6 +20,8 @@ def register_handlers(dp: Dispatcher, storage):
     # -- Админские хендлеры
     dp.register_message_handler(admin_add, commands=['admin'])
     dp.register_message_handler(start_quiz_creation, commands=['questions'], state="*")
+    dp.register_message_handler(start_game, commands=['startgame'], state="*")
+    dp.register_message_handler(game_sure, state=QuestionsCheck.are_you_sure)
 
     # - Хэндлеры для создания вопросов администратором
     dp.register_message_handler(process_question, state=QuizCreator.waiting_for_question)

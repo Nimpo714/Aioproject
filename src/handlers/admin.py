@@ -4,10 +4,11 @@ from aiogram.dispatcher import FSMContext
 from prettytable import PrettyTable
 
 # -- Local Modules
-from src.sql import add_admin, user_in_table, set_quest, clear_questions_table
+from src.sql import add_admin, user_in_table, set_quest, clear_questions_table, select_from_quest, set_game_status
 from src.credits import admin_password
-from src.servicec import spliter
-from src.state_machine import QuizCreator
+from src.keyboards import check_questions
+from src.servicec import spliter, questions_parser
+from src.state_machine import QuizCreator, QuestionsCheck
 
 
 async def admin_add(message: types.Message):
@@ -21,8 +22,7 @@ async def admin_add(message: types.Message):
 
 
 async def start_quiz_creation(message: types.Message, state: FSMContext):
-    member = await message.chat.get_member(message.from_user.id)
-    if user_in_table(message.chat.id, 'admins'):
+    if not user_in_table(message.chat.id, 'admins'):
         return await message.answer("❌ Опросы может создавать только администратор.")
 
     await state.update_data(questions_list=[], current_count=1)
@@ -86,7 +86,7 @@ async def process_correct_answer(message: types.Message, state: FSMContext):
         "correct": correct_text
     })
 
-    if current_count < 1:
+    if current_count < 5:
         # Обновляем данные и просим следующий вопрос
         new_count = current_count + 1
         await state.update_data(questions_list=questions_list, current_count=new_count)
@@ -108,4 +108,42 @@ async def process_correct_answer(message: types.Message, state: FSMContext):
             )
 
         await message.answer("🚀 Квиз успешно создан и доступен в БД!")
+        await state.finish()
+
+
+async def start_game(message: types.Message):
+    # Если пользователь является админом (находится в таблице admins)
+    if user_in_table(message.chat.id, 'admins'):
+        quests = []
+        # Вопросы с 1 - 5
+        for i in range(1, 5+1):
+            quest_data = select_from_quest(i, select='*')
+            if quest_data:  # Проверка, что данные получены
+                quests.append(quest_data)
+
+        questions_parsed_list = questions_parser(quests)
+        await message.answer('Сверка вопросов:')
+
+        if not questions_parsed_list:
+            await message.answer('Список вопросов пуст \n/questions для того чтоб начать заполнение')
+            return
+
+        # - Вывод
+        for q in questions_parsed_list:
+            await message.answer(q)
+        await message.answer('Начать игру?', reply_markup=check_questions())
+        await QuestionsCheck.are_you_sure.set()
+
+    else:
+        await message.answer('У вас нет прав администратора (вы не в списке)')
+
+async def game_sure(message: types.Message, state: FSMContext):
+    if message.text == 'Да':
+        set_game_status(True)
+        await message.answer('Игра начата')
+        await state.finish()
+
+    elif message.text == 'Нет':
+        # await message.answer('Игра не будет начата\nХотите изменить вопросы?', reply_markup=check_questions())
+        await message.answer('Отмена')
         await state.finish()

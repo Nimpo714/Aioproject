@@ -12,3 +12,7 @@ class Game(StatesGroup):
     wait_for_q2 = State()
     wait_for_q3 = State()
     wait_for_q4 = State()
+
+class QuestionsCheck(StatesGroup):
+    are_you_sure = State()
+    want_change_some_questions = State()
