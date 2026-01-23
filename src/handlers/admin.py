@@ -1,13 +1,13 @@
 # -- Modules
-from aiogram import types
+from aiogram import types, Bot
 from aiogram.dispatcher import FSMContext
 from prettytable import PrettyTable
 
 # -- Local Modules
-from src.sql import add_admin, user_in_table, set_quest, clear_questions_table, select_from_quest, set_game_status
+from src.sql import add_admin, user_in_table, set_quest, clear_questions_table, select_from_quest, set_game_status, is_game_open, top, is_admin_closed_game, drop_statistic
 from src.credits import admin_password
 from src.keyboards import check_questions
-from src.servicec import spliter, questions_parser
+from src.servicec import spliter, questions_parser, auto_promocodes
 from src.state_machine import QuizCreator, QuestionsCheck
 
 
@@ -138,8 +138,9 @@ async def start_game(message: types.Message):
         await message.answer('У вас нет прав администратора (вы не в списке)')
 
 async def game_sure(message: types.Message, state: FSMContext):
-    if message.text == 'Да':
-        set_game_status(True)
+    """ Подтверждение """
+    if message.text == 'Да': 
+        set_game_status(1)
         await message.answer('Игра начата')
         await state.finish()
 
@@ -147,3 +148,63 @@ async def game_sure(message: types.Message, state: FSMContext):
         # await message.answer('Игра не будет начата\nХотите изменить вопросы?', reply_markup=check_questions())
         await message.answer('Отмена')
         await state.finish()
+
+async def stop_game(message: types.Message):
+    """ Уведомление о закрытии игры """
+    if not is_game_open():
+        await message.answer("Игра не запущена!")
+        return
+    
+    if user_in_table(message.chat.id, 'admins'):
+        await message.answer('Закончить игру?', reply_markup=check_questions())
+        await QuestionsCheck.are_you_sure_close.set()
+
+    else:
+        await message.answer('У вас нет прав администратора (вы не в списке)')
+
+async def stop_game_sure(message: types.Message, state: FSMContext):
+    if message.text == 'Да':
+        set_game_status(False)
+        await message.answer('Игра закрыта /close для поведения итогов')
+        await state.finish()
+
+    elif message.text == 'Нет':
+        await message.answer('Отмена')
+        await state.finish()
+
+
+async def close(message: types.Message):
+    """ Закрытие  игры и рассылка """
+    if is_game_open(): 
+        await message.answer("Сначала остановите прием ответов командой /stopgame")
+        return
+
+    # Проверяем, не была ли игра уже окончательно закрыта и подведена статистика
+    if is_admin_closed_game():
+        await message.answer("Статистика уже была подведена и игра закрыта.")
+        return
+
+    await message.answer("Выбор победителей (топ:10)...")
+    
+    winners = top(10)
+    codes = auto_promocodes(return_promocodes_list=True)
+
+    if not winners:
+        await message.answer("Нет игроков для награждения.")
+        return
+
+    # Используем zip, чтобы не выйти за границы списков
+    for winner, code in zip(winners, codes):
+        try:
+            await message.bot.send_message(
+                winner[0], 
+                f'Поздравляю! Вы в ТОП-10! Ваш промокод: {code}'
+            )
+        except Exception as e:
+            print(f"Не удалось отправить сообщение {winner[0]}: {e}")
+
+    # Ставим пометку, что игра закрыта, и сбрасываем статистику
+    admin_closed_game(True) # Фиксируем закрытие в БД
+    drop_statistic()
+    
+    await message.answer("Рассылка завершена, статистика обнулена.")

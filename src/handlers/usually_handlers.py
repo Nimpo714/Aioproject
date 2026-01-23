@@ -4,8 +4,8 @@ from src.sql import update_player_top_position, add_user, user_in_table
 
 async def start(message: types.Message):
     await message.answer(f"Привет Это мини-игра с вопросами введи /help для доп информации")
-    if user_in_table(message.chat.id, 'users_top'):  # if false then
-        add_user(message.chat.id)
+# if user_in_table(message.chat.id, 'users_top'):  # if false then
+    add_user(message.chat.id)
 
 async def help(message: types.Message):
     await message.answer("""

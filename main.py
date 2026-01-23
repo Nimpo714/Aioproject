@@ -15,7 +15,10 @@ logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)  # -- бот
 dp = Dispatcher(bot, storage=storage)        # -- диспетчер
-register_handlers(dp, storage)       # -- регистр хэндлеров
+
+# -- регистр хэндлеров
+dp.data['bot'] = bot  # для bot.send
+register_handlers(dp, storage)      
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)

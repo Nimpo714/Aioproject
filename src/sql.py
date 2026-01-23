@@ -26,18 +26,28 @@ create_tables_scripts = [
         chat_id INTEGER,
         player_rate REAL DEFAULT 0,  -- REAL для дробных очков
         player_top INTEGER DEFAULT 0,
+        played_the_game INTEGER DEFAULT 0, -- Пользователь уже играл?
         start_time REAL DEFAULT 0,    -- Время начала ответов пользователя
         correct_count INTEGER DEFAULT 0 -- Кол-во верных ответов
     );''',
 
     '''CREATE TABLE IF NOT EXISTS game_data(
-        is_active INTEGER DEFAULT 0  -- 1 если игра идет, 0 если закрыта
+        is_active INTEGER DEFAULT 0,  -- 1 если игра идет, 0 если закрыта
+        is_closed INTEGER DEFAULT 0
+    );''',
+
+    '''CREATE TABLE IF NOT EXISTS promocodes(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        promo TEXT
     );'''
 ]
 
 for table in create_tables_scripts:  # -- Запускаем скрипты
     cursor.execute(table)
     con.commit()
+
+cursor.execute("INSERT INTO game_data (is_active, is_closed) SELECT 0, 0 WHERE NOT EXISTS (SELECT 1 FROM game_data)")
+con.commit()
 
 
 def add_user(id: int):
@@ -88,8 +98,20 @@ def user_in_table(id: int, table: str):
     return True
 
 def top(first_top: int = 10):
-    cursor.execute(""" SELECT * FROM top WHERE player_top < ? """, [first_top])
+    cursor.execute(""" SELECT chat_id FROM users_top WHERE player_top < ? """, [first_top])
     return cursor.fetchall()
+
+
+def drop_statistic():
+    """ Обнуляет топ игроков с сохранением параметров chat_id """
+    cursor.execute("""
+UPDATE users_top SET 
+    player_rate = 0, 
+    player_top = 0, 
+    start_time = 0, 
+    correct_count = 0, 
+    played_the_game = 0;
+ """)
 
 
 def add_admin(id: int):
@@ -130,14 +152,19 @@ def set_quest(quest_text: str, quest_ans: list, cor_ans: str):
 
 
 def clear_questions_table():
+    """ Очищает таблицу с вопросами """
     cursor.executescript("DELETE FROM questions; UPDATE sqlite_sequence SET seq = 0 WHERE name = 'questions'")
     con.commit()
 
 
-def set_game_status(active: bool):
-    """ Включает или выключает прием ответов (1 или 0) """
-    cursor.execute("DELETE FROM game_data")  # Очищаем старый статус
-    cursor.execute("INSERT INTO game_data (is_active) VALUES (?)", (1 if active else 0,))
+def set_game_status(active: int):
+    """ Устанавливает игровой статус """
+    cursor.execute("UPDATE game_data SET is_active = ?", [1 if active else 0])
+    con.commit()
+
+def admin_closed_game(active: bool):
+    """ Включает или выключает возможность закрытие игры """
+    cursor.execute("UPDATE game_data SET is_closed = ? VALUES(?)", [active])
     con.commit()
 
 
@@ -148,10 +175,34 @@ def is_game_open():
     return result is not None and result[0] == 1
 
 
+def is_admin_closed_game():
+    """ Проверяет, можно ли сейчас играть """
+    cursor.execute("SELECT is_closed FROM game_data")
+    result = cursor.fetchone()
+    return result is not None and result[0] == 1
+
+def played_the_game(chat_id: int):
+    """ Проверка, играл ли пользователь уже в игру """
+    cursor.execute("SELECT played_the_game FROM users_top WHERE chat_id = ?", [chat_id])
+    result = cursor.fetchone()
+
+    if result:
+        # Если запись есть, проверяем флаг (1 - играл, 0 - еще нет)
+        is_played = result[0] 
+        if is_played:
+            return True
+        else:
+            return False
+    else:
+        # Если записи нет совсем — добавляем пользователя
+        add_user(chat_id)
+        return False
+
+
 def start_user_timer(user_id: int):
     """ Фиксирует время начала теста для пользователя """
     current_time = time()
-    cursor.execute("UPDATE users_top SET start_time = ?, correct_count = 0 WHERE chat_id = ?", (current_time, user_id))
+    cursor.execute("UPDATE users_top SET start_time = ?, correct_count = 0 WHERE chat_id = ?", [current_time, user_id])
     con.commit()
 
 
@@ -182,3 +233,15 @@ def finish_user_game(user_id: int):
         update_player_top_position()
         return new_rate
     return 0
+
+
+def clear_promo_code():
+    """ Очищает таблицу с промо-кодами """
+    cursor.executescript("DELETE FROM promocodes; UPDATE sqlite_sequence SET seq = 0 WHERE name = 'promocodes'")
+    con.commit()
+
+
+def add_promo_code(promo_code: str):
+    """ Добавляет промокод """
+    cursor.execute("INSERT INTO promocodes (promo) VALUES (?)", [promo_code])
+    con.commit()

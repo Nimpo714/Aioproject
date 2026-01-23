@@ -8,11 +8,9 @@ class QuizCreator(StatesGroup):
     waiting_for_correct = State()
 
 class Game(StatesGroup):
-    wait_for_q1 = State()
-    wait_for_q2 = State()
-    wait_for_q3 = State()
-    wait_for_q4 = State()
+    question = State()
 
 class QuestionsCheck(StatesGroup):
     are_you_sure = State()
+    are_you_sure_close = State()
     want_change_some_questions = State()
